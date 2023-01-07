@@ -1,9 +1,10 @@
+import asyncio
+
 import discord
 from pytube import YouTube
 from typing import Any
 from discord.message import Message
 import time
-import asyncio
 
 file_path = "temp/file_example_MP3_700KB.mp3"
 
@@ -65,11 +66,13 @@ class MyClient(discord.Client):
                 except:
                     pass
 
-                await message.channel.send(f'downloading...')
-                self._download_next_song()
+                while len(self._songs) > 0:
+                    await message.channel.send(f'downloading...')
+                    self._download_next_song()
 
-                await message.channel.send(f'playing {self._songs[0]}')
-                self._play_song()
+                    await message.channel.send(f'playing {self._songs[0]}')
+                    self._play_song()
+                    await asyncio.sleep(self._currVideoLength + 1)
             else:
                 await message.channel.send(f"Added {self._songs[len(self._songs) - 1]} to the queue")
 
@@ -80,12 +83,21 @@ class MyClient(discord.Client):
 
         elif message.content == '!skip':
             self._voice.stop()
-            self._download_next_song()
-            self._play_song()
             await message.channel.send(f"k")
+            await message.channel.send(f'downloading...')
+            self._download_next_song()
+            if len(self._songs) > 0:
+                await message.channel.send(f'playing {self._songs[0]}')
+            self._play_song()
 
         elif message.content == "!queue":
             await message.channel.send(f"There's {len(self._songs)} in the queue")
+
+        elif message.content == "!reset":
+            self._startTime = -1
+            self._songs = []
+            self._voice.stop()
+            await message.channel.send(f"Reset")
 
     async def on_ready(
             self
@@ -99,7 +111,6 @@ class MyClient(discord.Client):
             after
     ):
         self._startTime = -1
-        print("state updated")
 
 
 if __name__ == "__main__":
