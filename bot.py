@@ -29,11 +29,10 @@ class MyClient(discord.Client):
         Downloads the next song in the list
         :return:
         """
-        if len(self._songs) > 0:
-            yt = YouTube(self._songs[0])
-            self._currVideoLength = yt.length
-            t = yt.streams.filter(only_audio=True)
-            t[1].download(output_path="temp/", filename="1.mp4")
+        yt = YouTube(self._songs[0])
+        self._currVideoLength = yt.length
+        t = yt.streams.filter(only_audio=True)
+        t[1].download(output_path="temp/", filename="1.mp4")
 
     def _play_song(
             self,
@@ -42,12 +41,11 @@ class MyClient(discord.Client):
         Plays the song in cache
         :return:
         """
-        if len(self._songs) > 0:
-            self._songs.pop()
-            self._voice.play(discord.FFmpegPCMAudio("temp/1.mp4", executable="ffmpeg/bin/ffmpeg.exe"))
-            self._voice.source = discord.PCMVolumeTransformer(self._voice.source)
-            self._voice.source.volume = 0.5
-            self._startTime = time.time()
+        self._songs.pop()
+        self._voice.play(discord.FFmpegPCMAudio("temp/1.mp4", executable="ffmpeg/bin/ffmpeg.exe"))
+        self._voice.source = discord.PCMVolumeTransformer(self._voice.source)
+        self._voice.source.volume = 0.5
+        self._startTime = time.time()
 
     async def on_message(
             self,
@@ -84,11 +82,12 @@ class MyClient(discord.Client):
         elif message.content == '!skip':
             self._voice.stop()
             await message.channel.send(f"k")
-            await message.channel.send(f'downloading...')
-            self._download_next_song()
+            if len(self._songs) > 0:
+                await message.channel.send(f'downloading...')
+                self._download_next_song()
             if len(self._songs) > 0:
                 await message.channel.send(f'playing {self._songs[0]}')
-            self._play_song()
+                self._play_song()
 
         elif message.content == "!queue":
             await message.channel.send(f"There's {len(self._songs)} in the queue")
