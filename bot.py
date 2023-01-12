@@ -1,12 +1,11 @@
 import asyncio
-
 import discord
+import os
+import pytube.exceptions
+import time
+from discord.message import Message
 from pytube import YouTube
 from typing import Any
-from discord.message import Message
-import time
-
-file_path = "temp/file_example_MP3_700KB.mp3"
 
 
 class MyClient(discord.Client):
@@ -21,6 +20,7 @@ class MyClient(discord.Client):
         self._currVideoLength = 0
         self._startTime = -1
         self._songs = []
+        self._filename = 0
 
     def _download_next_song(
             self
@@ -32,17 +32,19 @@ class MyClient(discord.Client):
         yt = YouTube(self._songs[0])
         self._currVideoLength = yt.length
         t = yt.streams.filter(only_audio=True)
-        t[1].download(output_path="temp/", filename="1.mp4")
+        t[1].download(output_path="temp/", filename=f"{self._filename}.mp3")
+        if self._filename > 10:
+            self._filename = 0
 
     def _play_song(
-            self,
+            self
     ) -> None:
         """
         Plays the song in cache
         :return:
         """
         self._songs.pop()
-        self._voice.play(discord.FFmpegPCMAudio("temp/1.mp4", executable="ffmpeg/bin/ffmpeg.exe"))
+        self._voice.play(discord.FFmpegPCMAudio(f"temp/{self._filename}.mp3", executable="ffmpeg/bin/ffmpeg.exe"))
         self._voice.source = discord.PCMVolumeTransformer(self._voice.source)
         self._voice.source.volume = 0.5
         self._startTime = time.time()
@@ -59,25 +61,30 @@ class MyClient(discord.Client):
                 self._startTime = -1
 
                 try:
-                    channel = message.author.voice.channel
-                    self._voice = await channel.connect()
+                    self._voice = await message.author.voice.channel.connect()
                 except:
                     pass
 
                 while len(self._songs) > 0:
-                    await message.channel.send(f'downloading...')
-                    self._download_next_song()
-
-                    await message.channel.send(f'playing {self._songs[0]}')
-                    self._play_song()
-                    await asyncio.sleep(self._currVideoLength + 1)
+                    try:
+                        await message.channel.send(f'downloading...')
+                        self._filename += 1
+                        local_file_name = self._filename
+                        self._download_next_song()
+                        await message.channel.send(f'playing {self._songs[0]}')
+                        self._play_song()
+                        await asyncio.sleep(self._currVideoLength + 1)
+                        os.remove(f"temp/{local_file_name}.mp3")
+                    except pytube.exceptions.RegexMatchError:
+                        await message.channel.send(f'Cannot find link: {self._songs[0]}')
+                        self._songs.pop()
             else:
                 await message.channel.send(f"Added {self._songs[len(self._songs) - 1]} to the queue")
 
         elif message.content == '!stop':
+            await message.channel.send(f'k')
             self._voice.stop()
             self._startTime = -1
-            await message.channel.send(f'k')
 
         elif message.content == '!skip':
             self._voice.stop()
@@ -97,6 +104,11 @@ class MyClient(discord.Client):
             self._songs = []
             self._voice.stop()
             await message.channel.send(f"Reset")
+
+        elif message.content == "!fuckoff":
+            await message.channel.send(f"k")
+            self._voice.stop()
+            await self._voice.disconnect()
 
     async def on_ready(
             self
